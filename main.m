@@ -1,25 +1,31 @@
-% 相机内参 %
-focalLength    = [309.4362, 344.2161]; % [fx, fy] 以像素为单位
-principalPoint = [318.9034, 257.5352]; % [cx, cy] 像素中心的光学中心?
-imageSize      = [360, 640];           % [nrows, mcols]图像大小
+% 脧脿禄煤脛脷虏脦 %
+focalLength    = [309.4362, 344.2161]; % [fx, fy] 脪脭脧帽脣脴脦陋碌楼脦禄
+principalPoint = [318.9034, 257.5352]; % [cx, cy] 脧帽脣脴脰脨脨脛碌脛鹿芒脩搂脰脨脨脛?
+imageSize      = [360, 640];           % [nrows, mcols]脥录脧帽麓贸脨隆
 camIntrinsics = cameraIntrinsics(focalLength, principalPoint, imageSize);
-% 相机外部位置信息 %
-height = 2.1798;    % 距地面的安装高度（以米为单位）?
-pitch  = 14;        % 摄像机的俯仰角度（以度为单位）?
-sensor = monoCamera(camIntrinsics, height, 'Pitch', pitch);% 构造一个单目相机?
+% Target size for all frames that enter the detector. Resize any input that
+% does not match the calibrated intrinsics to avoid runtime errors.
+targetImageSize = camIntrinsics.ImageSize;
+% 脧脿禄煤脥芒虏驴脦禄脰脙脨脜脧垄 %
+height = 2.1798;    % 戮脿碌脴脙忙碌脛掳虏脳掳赂脽露脠拢篓脪脭脙脳脦陋碌楼脦禄拢漏?
+pitch  = 14;        % 脡茫脧帽禄煤碌脛赂漏脩枚陆脟露脠拢篓脪脭露脠脦陋碌楼脦禄拢漏?
+sensor = monoCamera(camIntrinsics, height, 'Pitch', pitch);% 鹿鹿脭矛脪禄赂枚碌楼脛驴脧脿禄煤?
 [file, path] = uigetfile({'*.mp4;*.avi', 'Video Files (*.mp4, *.avi)'}, 'Select a Video File');
 if isequal(file, 0)
     disp('User selected Cancel');
 else
     disp(['User selected ', fullfile(path, file)]);
-    % 然后使用VideoReader读取视频
+    % 脠禄潞贸脢鹿脫脙VideoReader露脕脠隆脢脫脝碌垄聭
     videoReader = VideoReader(fullfile(path, file));
 end
-% 读感兴趣的部分，其中包含车道标志和车辆??
-timeStamp = 0;                   % 从视频开始的时间 
-videoReader.CurrentTime = timeStamp;   % 指向所选帧
-frame = readFrame(videoReader);        % 在timeStamp秒读取帧
-% 在车辆坐标系下转换为鸟瞰图，区域为前方3-13米，左右6米 %
+% 露脕赂脨脨脣脠陇碌脛虏驴路脰拢卢脝盲脰脨掳眉潞卢鲁碌碌脌卤锚脰戮潞脥鲁碌脕戮??
+timeStamp = 0;                   % 麓脫脢脫脝碌驴陋脢录碌脛脢卤录盲 
+videoReader.CurrentTime = timeStamp;   % 脰赂脧貌脣霉脩隆脰隆
+frame = readFrame(videoReader);        % 脭脷timeStamp脙毛露脕脠隆脰隆
+if ~isequal(size(frame, 1), targetImageSize(1)) || ~isequal(size(frame, 2), targetImageSize(2))
+    frame = imresize(frame, targetImageSize); % Ensure consistency with camera intrinsics
+end
+% 脭脷鲁碌脕戮脳酶卤锚脧碌脧脗脳陋禄禄脦陋脛帽卯芦脥录拢卢脟酶脫貌脦陋脟掳路陆3-13脙脳拢卢脳贸脫脪6脙脳 %
 distAheadOfSensor = 13; 
 spaceToOneSide    = 6;  
 bottomOffset      = 3;
@@ -29,54 +35,57 @@ birdsEyeConfig = birdsEyeView(sensor, outView, imageSize);
 
 
 detector = vehicleDetectorACF();
-vehicleWidth = [1.5, 2.5];            % 普通车辆的宽度在1.5至2.5米之间?
-monoDetector = configureDetectorMonoCamera(detector, sensor, vehicleWidth);    % 配置AFC探测器的摄像头?
+vehicleWidth = [1.5, 2.5];            % 脝脮脥篓鲁碌脕戮碌脛驴铆露脠脭脷1.5脰脕2.5脙脳脰庐录盲?
+monoDetector = configureDetectorMonoCamera(detector, sensor, vehicleWidth);    % 脜盲脰脙AFC脤陆虏芒脝梅碌脛脡茫脧帽脥路?
 [bboxes, scores] = detect(monoDetector, frame);
 locations = computeVehicleLocations(bboxes, sensor);
-%  imgOut = insertVehicleDetections(frame, locations, bboxes); % 将检测结果叠加在视频帧上
+%  imgOut = insertVehicleDetections(frame, locations, bboxes); % 陆芦录矛虏芒陆谩鹿没碌镁录脫脭脷脢脫脝碌脰隆脡脧
 
 videoReader.CurrentTime = 0;
 isPlayerOpen = true;
 snapshot     = [];
 while hasFrame(videoReader) && isPlayerOpen
  
-    % 抓取视频帧?
+    % 脳楼脠隆脢脫脝碌脰隆?
     frame = readFrame(videoReader);
-    % 鸟瞰图?
+    if ~isequal(size(frame, 1), targetImageSize(1)) || ~isequal(size(frame, 2), targetImageSize(2))
+        frame = imresize(frame, targetImageSize); % Normalize frame size for detector
+    end
+    % 脛帽卯芦脥录?
     birdsEyeImage = transformImage(birdsEyeConfig, frame);
     birdsEyeImage = rgb2gray(birdsEyeImage);
-    % 检测车道边界特征?
-    approxLaneMarkerWidthVehicle = 0.25;    % 车道宽度25cm
+    % 录矛虏芒鲁碌碌脌卤脽陆莽脤脴脮梅?
+    approxLaneMarkerWidthVehicle = 0.25;    % 鲁碌碌脌驴铆露脠25cm
     vehicleROI = outView - [-1, 2, -3, 3];  % [4,11,-3,3]
-    laneSensitivity = 0.25;                 % 灵敏度?
-    birdsEyeViewBW = segmentLaneMarkerRidge(birdsEyeImage, birdsEyeConfig,approxLaneMarkerWidthVehicle, 'ROI', vehicleROI,'Sensitivity', laneSensitivity);         %杈撳叆鐏板害鍥捐浆鍖栦负浜屽?煎浘
-    % 将像素坐标系下车道线点转化到车辆坐标系下
+    laneSensitivity = 0.25;                 % 脕茅脙么露脠?
+    birdsEyeViewBW = segmentLaneMarkerRidge(birdsEyeImage, birdsEyeConfig,approxLaneMarkerWidthVehicle, 'ROI', vehicleROI,'Sensitivity', laneSensitivity);         %猫戮聯氓聟楼莽聛掳氓潞娄氓聸戮猫陆卢氓聦聳盲赂潞盲潞聦氓?录氓聸戮
+    % 陆芦脧帽脣脴脳酶卤锚脧碌脧脗鲁碌碌脌脧脽碌茫脳陋禄炉碌陆鲁碌脕戮脳酶卤锚脧碌脧脗
     [imageX, imageY] = find(birdsEyeViewBW);
     xyBoundaryPoints = imageToVehicle(birdsEyeConfig, [imageY, imageX]);
-    % 寻找车道边界候选者?
-    maxLanes      = 2;                      % 寻找最多两个车道?
-    boundaryWidth = 3*approxLaneMarkerWidthVehicle; % 扩展边界宽度以搜索两个车道?
+    % 脩掳脮脪鲁碌碌脌卤脽陆莽潞貌脩隆脮脽?
+    maxLanes      = 2;                      % 脩掳脮脪脳卯露脿脕陆赂枚鲁碌碌脌?
+    boundaryWidth = 3*approxLaneMarkerWidthVehicle; % 脌漏脮鹿卤脽陆莽驴铆露脠脪脭脣脩脣梅脕陆赂枚鲁碌碌脌?
     [boundaries, boundaryPoints] = findParabolicLaneBoundaries(xyBoundaryPoints,boundaryWidth, ...
-        'MaxNumBoundaries', maxLanes, 'validateBoundaryFcn', @validateBoundaryFcn);   % 查找抛物线车道边界?
-    % 鏍规嵁闀垮害 绛涢??
-    maxPossibleXLength = diff(vehicleROI(1:2));      % 选取感兴趣区域ROI中，x方向的最大长度?
-    minXLength         = maxPossibleXLength * 0.6;   % 建立最小长度门槛?
+        'MaxNumBoundaries', maxLanes, 'validateBoundaryFcn', @validateBoundaryFcn);   % 虏茅脮脪脜脳脦茂脧脽鲁碌碌脌卤脽陆莽?
+    % 忙聽鹿忙聧庐茅聲驴氓潞娄 莽颅聸茅??
+    maxPossibleXLength = diff(vehicleROI(1:2));      % 脩隆脠隆赂脨脨脣脠陇脟酶脫貌ROI脰脨拢卢x路陆脧貌碌脛脳卯麓贸鲁陇露脠?
+    minXLength         = maxPossibleXLength * 0.6;   % 陆篓脕垄脳卯脨隆鲁陇露脠脙脜录梅?
     isOfMinLength = arrayfun(@(b)diff(b.XExtent) > minXLength, boundaries);
     boundaries    = boundaries(isOfMinLength);
-    % 根据强度，筛选?%
+    % 赂霉戮脻脟驴露脠拢卢脡赂脩隆?%
     birdsImageROI = vehicleToImageROI(birdsEyeConfig, vehicleROI);
     [laneImageX,laneImageY] = meshgrid(birdsImageROI(1):birdsImageROI(2),birdsImageROI(3):birdsImageROI(4));
-    vehiclePoints = imageToVehicle(birdsEyeConfig,[laneImageX(:),laneImageY(:)]);% 将图像点转换为车辆点
-    maxPointsInOneLane = numel(unique(vehiclePoints(:,1)));%unique（vehiclePoints中第一列元素） 查找任何车道可能的最大唯一X轴位置数
-    maxLaneLength = diff(vehicleROI(1:2));                 % 将车道边界的最大长度设置为ROI长度，28-4=24
-    maxStrength   = maxPointsInOneLane/maxLaneLength;      % 计算该帧最长车道尺寸/ ROI尺寸=最大车道强度 ?  
+    vehiclePoints = imageToVehicle(birdsEyeConfig,[laneImageX(:),laneImageY(:)]);% 陆芦脥录脧帽碌茫脳陋禄禄脦陋鲁碌脕戮碌茫
+    maxPointsInOneLane = numel(unique(vehiclePoints(:,1)));%unique拢篓vehiclePoints脰脨碌脷脪禄脕脨脭陋脣脴拢漏 虏茅脮脪脠脦潞脦鲁碌碌脌驴脡脛脺碌脛脳卯麓贸脦篓脪禄X脰谩脦禄脰脙脢媒
+    maxLaneLength = diff(vehicleROI(1:2));                 % 陆芦鲁碌碌脌卤脽陆莽碌脛脳卯麓贸鲁陇露脠脡猫脰脙脦陋ROI鲁陇露脠拢卢28-4=24
+    maxStrength   = maxPointsInOneLane/maxLaneLength;      % 录脝脣茫赂脙脰隆脳卯鲁陇鲁碌碌脌鲁脽麓莽/ ROI鲁脽麓莽=脳卯麓贸鲁碌碌脌脟驴露脠 ?  
     isStrong      = [boundaries.Strength] > 0.2*maxStrength;
     boundaries    = boundaries(isStrong);
-    boundaries = classifyLaneTypes(boundaries, boundaryPoints);% 分类车道标记类型
-    % 寻找自我通道
-    xOffset    = 0;   % 距离传感器0米?
+    boundaries = classifyLaneTypes(boundaries, boundaryPoints);% 路脰脌脿鲁碌碌脌卤锚录脟脌脿脨脥
+    % 脩掳脮脪脳脭脦脪脥篓碌脌
+    xOffset    = 0;   % 戮脿脌毛麓芦赂脨脝梅0脙脳?
     distanceToBoundaries  = boundaries.computeBoundaryModel(xOffset);
-    % 寻找候选自我边界?
+    % 脩掳脮脪潞貌脩隆脳脭脦脪卤脽陆莽?
     leftEgoBoundaryIndex  = [];
     rightEgoBoundaryIndex = [];
     minLDistance = min(distanceToBoundaries(distanceToBoundaries>0));
@@ -89,16 +98,16 @@ while hasFrame(videoReader) && isPlayerOpen
     end
     leftEgoBoundary       = boundaries(leftEgoBoundaryIndex);
     rightEgoBoundary      = boundaries(rightEgoBoundaryIndex);
-    % 检测车辆?
+    % 录矛虏芒鲁碌脕戮?
     [bboxes, scores] = detect(monoDetector, frame);
     locations = computeVehicleLocations(bboxes, sensor);
-    % 传感器输出?
+    % 麓芦赂脨脝梅脢盲鲁枚?
     sensorOut.leftEgoBoundary  = leftEgoBoundary;
     sensorOut.rightEgoBoundary = rightEgoBoundary;
     sensorOut.vehicleLocations = locations;
     sensorOut.xVehiclePoints   = bottomOffset:distAheadOfSensor;
     sensorOut.vehicleBoxes     = bboxes;
-    % 打包其他可视化数据，包括中间结果
+    % 麓貌掳眉脝盲脣没驴脡脢脫禄炉脢媒戮脻拢卢掳眉脌篓脰脨录盲陆谩鹿没
     intOut.birdsEyeImage   = birdsEyeImage;
     intOut.birdsEyeConfig  = birdsEyeConfig;
     intOut.vehicleScores   = scores;
@@ -107,7 +116,7 @@ while hasFrame(videoReader) && isPlayerOpen
     closePlayers = ~hasFrame(videoReader);
     isPlayerOpen = visualizeSensorResults(frame, sensor, sensorOut, ...
         intOut, closePlayers);
-    timeStamp = 2; % 在2s开始显示?
+    timeStamp = 2; % 脭脷2s驴陋脢录脧脭脢戮?
     if abs(videoReader.CurrentTime - timeStamp) < 0.01
         snapshot = takeSnapshot(frame, sensor, sensorOut);
     end
